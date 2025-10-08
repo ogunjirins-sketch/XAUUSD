@@ -1,22 +1,38 @@
-# config.py
+# strategy/bias.py
 
-# === Market & Pair Settings ===
-PAIR = "XAUUSD"
+import pandas as pd
 
-# === Timeframes ===
-BIAS_TF_PRIMARY = "H4"   # H4 for trend confirmation
-BIAS_TF_SECONDARY = "H1" # H1 for alignment check
-ENTRY_TF = ["M15", "M30"]  # M15 for entries, M30 for minor pullback checks
+def calculate_ema(series, period):
+    """Calculate Exponential Moving Average (EMA)"""
+    return series.ewm(span=period, adjust=False).mean()
 
-# === Risk Settings ===
-DAILY_RISK_PERCENT = 20    # Max % of account risked per day
-PER_TRADE_RISK_PERCENT = 5 # Max % risk per trade
+def determine_trend(df, ema_period=50):
+    """
+    Determine trend based on EMA slope.
+    df: DataFrame with 'close' prices
+    Returns: 'bullish', 'bearish', or 'neutral'
+    """
+    ema = calculate_ema(df['close'], ema_period)
+    slope = ema.iloc[-1] - ema.iloc[-2]
+    if slope > 0:
+        return 'bullish'
+    elif slope < 0:
+        return 'bearish'
+    else:
+        return 'neutral'
 
-# === Trading Session Settings ===
-# 24h in UTC; Gold is most liquid during London + NY overlap
-TRADING_START_HOUR_UTC = 8
-TRADING_END_HOUR_UTC = 17
+def get_bias(h4_df, h1_df):
+    """
+    Determine confirmed bias using H4 and H1 dataframes.
+    h4_df: H4 OHLC data (pandas DataFrame)
+    h1_df: H1 OHLC data (pandas DataFrame)
+    Returns: 'bullish', 'bearish', or 'neutral'
+    """
+    h4_trend = determine_trend(h4_df)
+    h1_trend = determine_trend(h1_df)
 
-# === Safety Settings ===
-MAX_CONSECUTIVE_LOSSES = 3  # Halt bot if reached
-MAX_TRADES_PER_DAY = 15     # Limit number of trades per day
+    # Confirm trend alignment
+    if h4_trend == h1_trend:
+        return h4_trend
+    else:
+        return 'neutral'
